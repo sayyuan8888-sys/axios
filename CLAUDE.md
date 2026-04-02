@@ -13,7 +13,7 @@ npm run test:vitest:browser       # Browser tests (Chromium, interactive)
 npm run test:vitest:browser:headless  # Browser tests (3 engines, headless)
 npm run test:vitest:watch         # Watch mode
 npm run lint                      # ESLint on lib/**/*.js
-npm run fix                       # Auto-fix lint + Prettier
+npm run fix                       # ESLint auto-fix on lib/**/*.js
 npm run build                     # Production build (gulp clear + rollup)
 npm start                         # Sandbox dev server
 npm run examples                  # Examples server on localhost:3000
@@ -30,6 +30,7 @@ lib/
 │   ├── AxiosError.js     # Error class with code/config/request/response context
 │   ├── AxiosHeaders.js   # Case-insensitive header management with accessors
 │   ├── InterceptorManager.js  # Request/response interceptor lifecycle
+│   ├── buildFullPath.js       # Combines baseURL + requestedURL
 │   ├── dispatchRequest.js     # Adapter selection and request dispatch
 │   ├── mergeConfig.js    # Strategy-based config merging (deep/shallow/override)
 │   ├── settle.js         # Response status validation
@@ -42,7 +43,7 @@ lib/
 ├── cancel/               # CancelToken, CanceledError, isCancel()
 ├── defaults/             # Default config (transformers, headers, timeouts)
 ├── platform/             # Platform-specific implementations (node/, browser/)
-└── helpers/              # ~30 utility modules (URL building, cookies, streams, etc.)
+└── helpers/              # 31 utility modules (URL building, cookies, streams, etc.)
 ```
 
 ## Key Architectural Patterns
@@ -61,6 +62,7 @@ lib/
 - Builds: `dist/node/axios.cjs` (Node CJS), `dist/browser/axios.cjs` (Browser CJS), `dist/esm/axios.js` (ESM), `dist/axios.js` (UMD)
 - Types: `index.d.ts` (ESM) and `index.d.cts` (CJS)
 - Package.json `exports` field handles conditional resolution per environment (bun, react-native, browser, default)
+- Unsafe exports (`./unsafe/*`): exposes internal modules like `settle.js`, `buildFullPath.js`, `buildURL`, `combineURLs`, adapters, and `utils.js` as public API surface
 
 ## Test Structure
 
@@ -111,3 +113,14 @@ tests/
 **Adding adapter functionality**: Modify the specific adapter in `lib/adapters/`. Node-specific code goes in `http.js`, browser in `xhr.js` or `fetch.js`
 
 **Updating defaults**: Edit `lib/defaults/index.js` for config defaults, `lib/defaults/transitional.js` for backward compatibility flags
+
+## CI/CD
+
+- **Main workflow** (`.github/workflows/run-ci.yml`): Triggered on PRs — builds, runs unit + browser-headless tests on Node 24, plus smoke/module tests across Node 12–24
+- **Publish** (`.github/workflows/publish.yml`): Release automation
+- **Concurrency**: Duplicate CI runs are auto-cancelled per group
+
+## Dependencies
+
+- **Production**: `follow-redirects`, `form-data`, `proxy-from-env`
+- **Key dev**: vitest 4.x, @vitest/browser-playwright, rollup 4.x, eslint 10.x, prettier 3.x, husky + lint-staged + commitlint
